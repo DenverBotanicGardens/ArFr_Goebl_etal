@@ -363,26 +363,42 @@ surv.pw <- emmeans(surv24.mod, specs = pairwise ~ Source, type="response")
 
 
 ## Trait PCA -----------------------------------------------------------
-ARFR.traits <- ARFR.sel %>% dplyr::select(c("Survival","Length_cm_20220726","Height_20230927", "SLA_mm2permg",
-                                           "InfBM2022_2024updated")) 
+if (!require("devtools")) install.packages("devtools")
+library(devtools)
+library(FactoMineR)
+
+
+
+ARFR.traits <- ARFR.sel %>% dplyr::select(c("Length_cm_20220726","Height_20230927","SLA_mm2permg")) 
+#,"InfBM2022_2024updated","Survival",
                                             
 ARFR.traits <- ARFR.traits[!is.na(ARFR.traits$Length_cm_20220726),] #Remove indivs that died early & have no data
-ARFR.traits <- ARFR.traits[!is.na(ARFR.traits$Survival),] #Remove rows without surv data
+#ARFR.traits <- ARFR.traits[!is.na(ARFR.traits$Survival),] #Remove rows without surv data
+#ARFR.traitsTest <- ARFR.traits[!is.na(ARFR.traits$InfBM2022_2024updated),]
 
 ## Look at trait correlations
 ARFR.traitsCor <- cor(ARFR.traits, use="pairwise.complete.obs")
 corrplot(ARFR.traitsCor)
 
-ARFR.traitsT <- t(ARFR.traits)
+#ARFR.traitsComplete <- na.omit(ARFR.traits)
+
+pca.results <- PCA(ARFR.traits, scale.unit = TRUE, ncp = 5, ind.sup = NULL, 
+    quanti.sup = NULL, quali.sup = NULL, row.w = NULL, 
+    col.w = NULL, graph = TRUE, axes = c(1,2))
+
+#ARFR.traitsT <- t(ARFR.traits)
 
 ## Make covariance matrix and run pca
-covMat.traits <- cov(ARFR.traitsT, use="pairwise.complete.obs")
-pca.results <- prcomp(covMat.traits, center=TRUE)
+#covMat.traits <- cov(ARFR.traitsT, use="pairwise.complete.obs")
+#pca.results <- prcomp(covMat.traits, scale.=TRUE) #center=TRUE, 
+#pca.results <- prcomp(ARFR.traitsComplete, scale.=TRUE) #center=TRUE, 
 
 
 ## Get sample list with pop ID and colors
 ARFR.indivPop <- ARFR.sel %>% dplyr::select(c("Source", "ID", "HexCode_Indv"))
 ARFR.indivPop$ID <- as.factor(ARFR.indivPop$ID)
+#indivs.traitPCA <- as.factor(colnames(ARFR.traitsT))
+ARFR.traitsT <- t(ARFR.traits)
 indivs.traitPCA <- as.factor(colnames(ARFR.traitsT))
 indivs.traitPCA <- as.data.frame(indivs.traitPCA)
 colnames(indivs.traitPCA) <- "ID"
@@ -391,8 +407,15 @@ indivs.traitPCA <- left_join(indivs.traitPCA, ARFR.indivPop, by="ID")
 
 
 par(mfrow=c(1,1))
-plot(x=pca.results$x[,1], y=pca.results$x[,2],pch=19, cex=1.2, col=indivs.traitPCA$HexCode_Indv, main="Trait PCA")
-plot(x=pca.results$x[,2], y=pca.results$x[,3],pch=19, cex=1.2, col=indivs.traitPCA$HexCode_Indv)
+#plot(x=pca.results$x[,1], y=pca.results$x[,2],pch=19, cex=1.2, col=indivs.traitPCA$HexCode_Indv, main="Trait PCA")
+#plot(x=pca.results$x[,2], y=pca.results$x[,3],pch=19, cex=1.2, col=indivs.traitPCA$HexCode_Indv)
+
+pca.ind <- pca.results$ind
+plot(x=pca.ind$coord[,1], y=pca.ind$coord[,2],pch=19, cex=1.2, col=indivs.traitPCA$HexCode_Indv, main="Trait PCA")
+
+#test <- head(pca.results$rotation)
+
+
 
 
 
