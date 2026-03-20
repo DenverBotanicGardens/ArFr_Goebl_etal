@@ -29,9 +29,9 @@ calcSE <- function(x){sd(x, na.rm=TRUE)/sqrt(length(x))}
 
 
 ## LOAD DATA --------------------------------------------------------------------------------------
-ARFR22 <- read.csv(file="20251031_ChatfieldDataClean2022_ARFR.csv", sep=",", header=TRUE, dec=".")
-ARFR23 <- read.csv(file="20251031_ChatfieldDataClean2023_ARFR.csv", sep=",", header=TRUE, dec=".")
-ARFR24 <- read.csv(file="20251031_ChatfieldDataClean2024_ARFR.csv", sep=",", header=TRUE, dec=".")
+ARFR22 <- read.csv(file="20251031_ChatfieldDataClean2022_ARFRms.csv", sep=",", header=TRUE, dec=".")
+ARFR23 <- read.csv(file="20251031_ChatfieldDataClean2023_ARFRms.csv", sep=",", header=TRUE, dec=".")
+ARFR24 <- read.csv(file="20251031_ChatfieldDataClean2024_ARFRms.csv", sep=",", header=TRUE, dec=".")
 
 ## Load PCA values from AE's analysis
 pca_vals <- read.csv(file="20251006_pcaTableFromAE_ARFR.csv", sep=",", header=TRUE, dec=".")
@@ -81,7 +81,7 @@ ARFR24.ex <- ARFR24.ex %>% mutate(across(c("Survival","LeafSurfaceArea_cm2","SLA
 
 
 
-## COMBINE AND ADD REPRODUCTION BIOMASS DATA --------------------------------------------------------------
+## COMBINE AND ADD REPRODUCTIVE BIOMASS DATA --------------------------------------------------------------
 ## Combine flower head and chaff/seed weights + any missed samples from initial 2022 weights
 ## Change Chaff entries to zero (from NA) if no chaff weight, but heads were weighed
 ARFR24.ex$InfBM2022smpls_CHAFF_2024weigh[!is.na(ARFR24.ex$InfBM2022smpls_HEADS_2024weigh) & is.na(ARFR24.ex$InfBM2022smpls_CHAFF_2024weigh)] <- 0
@@ -113,6 +113,11 @@ ARFR23.sel <- ARFR23.ex %>% dplyr::select(c("ID","Height_20230927","Survival_202
 ARFR.sel <- left_join(ARFR24.ex, ARFR23.sel, by="ID") 
 ARFR.sel <- left_join(ARFR.sel, ARFR22.sel, by="ID") 
 ARFR.sel$Source <- as.factor(ARFR.sel$Source)
+
+ARFR.sel$PopAbbrev <- as.character(str_replace_all(ARFR.sel$PopAbbrev, "\\.", ""))
+
+AddnCols <- as.data.frame(cbind(as.character(ARFR.sel$PopAbbrev),as.character(ARFR.sel$PopCol),as.numeric(ARFR.sel$Lat),as.character(ARFR.sel$Source)))
+colnames(AddnCols) <- c("PopAbbrev","PopCol","Lat","Source")
 # --------------------------------------------------------------------------------------------------
 
 
@@ -120,9 +125,6 @@ ARFR.sel$Source <- as.factor(ARFR.sel$Source)
 
 
 ## ARFR - VISUALIZE RAW DATA ---------------------------------------------------------------
-AddnCols <- as.data.frame(cbind(as.character(ARFR.sel$PopAbbrev),as.character(ARFR.sel$PopCol),as.numeric(ARFR.sel$Lat),as.character(ARFR.sel$Source)))
-colnames(AddnCols) <- c("PopAbbrev","PopCol","Lat","Source")
-
 
 ## Order populations for plotting 
 ## Order by average latitude (or other traits)
@@ -363,57 +365,65 @@ surv.pw <- emmeans(surv24.mod, specs = pairwise ~ Source, type="response")
 
 
 ## Trait PCA -----------------------------------------------------------
-if (!require("devtools")) install.packages("devtools")
-library(devtools)
+#if (!require("devtools")) install.packages("devtools")
+#library(devtools)
 library(FactoMineR)
+#library(missMDA)
 
+ARFR.sel$Grwth <- ARFR.sel$Height_20230927 - ARFR.sel$Length_cm_20220726
+ARFR.traits <- ARFR.sel %>% dplyr::select(c("Length_cm_20220726","Height_20230927","Grwth","Survival","SLA_mm2permg",
+                                            "InfBM2022_2024updated","Source")) 
 
-
-ARFR.traits <- ARFR.sel %>% dplyr::select(c("Length_cm_20220726","Height_20230927","SLA_mm2permg")) 
-#,"InfBM2022_2024updated","Survival",
-                                            
+## Clean up and subset dataset due to missing values 
 ARFR.traits <- ARFR.traits[!is.na(ARFR.traits$Length_cm_20220726),] #Remove indivs that died early & have no data
-#ARFR.traits <- ARFR.traits[!is.na(ARFR.traits$Survival),] #Remove rows without surv data
-#ARFR.traitsTest <- ARFR.traits[!is.na(ARFR.traits$InfBM2022_2024updated),]
+ARFR.traits <- ARFR.traits[!is.na(ARFR.traits$Survival) | !is.na(ARFR.traits$InfBM2022_2024updated),] #Remove rows without surv data except for plts w InfBM
+ARFR.traits <- ARFR.traits[(!is.na(ARFR.traits$Height_20230927) | !is.na(ARFR.traits$SLA_mm2permg)) 
+                           | !is.na(ARFR.traits$InfBM2022_2024updated),] #Keep rows that have InfBM and either 2023 sz or SLA
 
 ## Look at trait correlations
-ARFR.traitsCor <- cor(ARFR.traits, use="pairwise.complete.obs")
+ARFR.traitsCor <- cor(ARFR.traits[,1:6], use="pairwise.complete.obs")
 corrplot(ARFR.traitsCor)
+## Exclude size in 2022 due to high correlation with growth and 2022 repro
 
-#ARFR.traitsComplete <- na.omit(ARFR.traits)
+## Calculate population means and use to impute missing values (modified from ChatGPT)
+ARFR.traitsImp <- ARFR.traits[,2:7] %>% group_by(Source) %>%
+  mutate(Grwth=ifelse(is.na(Grwth), mean(Grwth, na.rm=TRUE), Grwth),
+  Sz23=ifelse(is.na(Height_20230927), mean(Height_20230927, na.rm=TRUE), Height_20230927),
+  SLA=ifelse(is.na(SLA_mm2permg), mean(SLA_mm2permg, na.rm=TRUE), SLA_mm2permg),
+  RBM=ifelse(is.na(InfBM2022_2024updated), mean(InfBM2022_2024updated, na.rm=TRUE), InfBM2022_2024updated)
+  ) %>%
+  ungroup()
 
-pca.results <- PCA(ARFR.traits, scale.unit = TRUE, ncp = 5, ind.sup = NULL, 
-    quanti.sup = NULL, quali.sup = NULL, row.w = NULL, 
-    col.w = NULL, graph = TRUE, axes = c(1,2))
+ARFR.traitsImp <- ARFR.traitsImp %>% dplyr::select(c("Sz23","Grwth","Survival","SLA","RBM")) 
 
-#ARFR.traitsT <- t(ARFR.traits)
-
-## Make covariance matrix and run pca
-#covMat.traits <- cov(ARFR.traitsT, use="pairwise.complete.obs")
-#pca.results <- prcomp(covMat.traits, scale.=TRUE) #center=TRUE, 
-#pca.results <- prcomp(ARFR.traitsComplete, scale.=TRUE) #center=TRUE, 
+## Run PCA
+pca.results <- PCA(ARFR.traitsImp, scale.unit=TRUE, graph=TRUE)
 
 
 ## Get sample list with pop ID and colors
 ARFR.indivPop <- ARFR.sel %>% dplyr::select(c("Source", "ID", "HexCode_Indv"))
 ARFR.indivPop$ID <- as.factor(ARFR.indivPop$ID)
-#indivs.traitPCA <- as.factor(colnames(ARFR.traitsT))
-ARFR.traitsT <- t(ARFR.traits)
-indivs.traitPCA <- as.factor(colnames(ARFR.traitsT))
+indivs.traitPCA <- as.factor(rownames(ARFR.traits))
 indivs.traitPCA <- as.data.frame(indivs.traitPCA)
 colnames(indivs.traitPCA) <- "ID"
 indivs.traitPCA <- left_join(indivs.traitPCA, ARFR.indivPop, by="ID")
 
-
-
-par(mfrow=c(1,1))
-#plot(x=pca.results$x[,1], y=pca.results$x[,2],pch=19, cex=1.2, col=indivs.traitPCA$HexCode_Indv, main="Trait PCA")
-#plot(x=pca.results$x[,2], y=pca.results$x[,3],pch=19, cex=1.2, col=indivs.traitPCA$HexCode_Indv)
-
 pca.ind <- pca.results$ind
-plot(x=pca.ind$coord[,1], y=pca.ind$coord[,2],pch=19, cex=1.2, col=indivs.traitPCA$HexCode_Indv, main="Trait PCA")
+pca.load <- pca.results$var$coord
+pca.eig <- pca.results$eig
 
-#test <- head(pca.results$rotation)
+
+
+## Plot
+par(mfrow=c(1,1))
+par(pty="s")
+
+plot(x=pca.ind$coord[,1], y=pca.ind$coord[,2],pch=19, cex=1.2, col=indivs.traitPCA$HexCode_Indv, main="Trait PCA",
+     xlab="PC1 (28.8% variance)", ylab="PC2 (26.1% variance)")
+legend("topleft", AddnCols.unq$PopAbbrev, col=AddnCols.unq$PopCol, cex=0.95, pch=19)
+
+plot(x=pca.ind$coord[,3], y=pca.ind$coord[,4],pch=19, cex=1.2, col=indivs.traitPCA$HexCode_Indv, main="Trait PCA")
+
 
 
 
