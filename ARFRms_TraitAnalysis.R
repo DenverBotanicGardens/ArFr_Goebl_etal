@@ -430,7 +430,8 @@ plot(x=pca.ind$coord[,3], y=pca.ind$coord[,4],pch=19, cex=1.2, col=indivs.traitP
 
 
 ## Calculate PC1 mean values for each source population
-trait.PCscores <- as.data.frame(cbind(pca.results$x[,1], pca.results$x[,2], as.character(indivs.traitPCA$Source)))
+trait.PCscores <- as.data.frame(cbind(pca.ind$coord[,1], pca.ind$coord[,2], as.character(indivs.traitPCA$Source)))
+#trait.PCscores <- as.data.frame(cbind(pca.results$x[,1], pca.results$x[,2], as.character(indivs.traitPCA$Source)))
 colnames(trait.PCscores) <- c("PC1", "PC2", "Source")
 trait.PCscores$PC1 <- as.numeric(trait.PCscores$PC1)
 traitPC1.mean <- trait.PCscores %>% group_by(Source) %>% summarise(PC1mean = mean(PC1), n=n())
@@ -450,8 +451,9 @@ rgb_matrix <- gradient_fn(vals_norm)
 colors.traitPC <- rgb(rgb_matrix[,1], rgb_matrix[,2], rgb_matrix[,3], maxColorValue = 255)
 
 # Plot using colors
-plot(traitPC1.mean$PC1mean, rep(1, length(traitPC1.mean$PC1mean)), col=colors.traitPC, pch=16, cex=1.75,
-     xlab="Trait PC1 score", ylab=NA, main="Color representation of trait PC1 scores", yaxt='n')
+dev.off()
+plot(traitPC1.mean$PC1mean, rep(1, length(traitPC1.mean$PC1mean)), col=colors.traitPC, pch=16, cex=2,
+     xlab="Trait PC1 score", ylab=NA, main="Color representation of trait PC1 scores", yaxt='n', cex.main=1.5)
 
 traitPC1.mean$color <- colors.traitPC
 ## -----------------------------------------------------------------------------
