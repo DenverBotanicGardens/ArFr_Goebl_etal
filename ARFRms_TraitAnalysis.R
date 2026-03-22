@@ -180,7 +180,7 @@ boxplot(SLA_mm2permg ~ ARFR.latByMed, data=ARFR.sel, las=2,
         cex.main=1.5, col=ARFR.meds$PopCol, main="SPECIFIC LEAF AREA 2024")
 
 
-## Survival 2024
+## Survival 2024 Barplot
 barplot(surv24.pop, col=ARFR.meds$PopCol, ylim=c(0,1), cex.axis=0.99, names.arg=ARFR.meds$PopAbbrev,
         las=2, ylab="Survival rate", main="SURVIVAL 2022-2024", cex.main=1.5)
 ## ---------------------------------------------------
@@ -365,10 +365,7 @@ surv.pw <- emmeans(surv24.mod, specs = pairwise ~ Source, type="response")
 
 
 ## Trait PCA -----------------------------------------------------------
-#if (!require("devtools")) install.packages("devtools")
-#library(devtools)
 library(FactoMineR)
-#library(missMDA)
 
 ARFR.sel$Grwth <- ARFR.sel$Height_20230927 - ARFR.sel$Length_cm_20220726
 ARFR.traits <- ARFR.sel %>% dplyr::select(c("Length_cm_20220726","Height_20230927","Grwth","Survival","SLA_mm2permg",
@@ -425,6 +422,14 @@ legend("topleft", AddnCols.unq$PopAbbrev, col=AddnCols.unq$PopCol, cex=0.95, pch
 plot(x=pca.ind$coord[,3], y=pca.ind$coord[,4],pch=19, cex=1.2, col=indivs.traitPCA$HexCode_Indv, main="Trait PCA")
 
 
+## Add loadings to plot (modified from chatGPT)
+rownames(pca.load)
+traits.loadNames <- c("Size","Growth","Survival","SLA","Reproduction")
+arrow_scale <- 4
+arrows(0,0, pca.load[,1]*arrow_scale, pca.load[,2]*arrow_scale, length=0.1, col="black", lwd=2)
+
+text(pca.load[,1]*arrow_scale, pca.load[,2]*arrow_scale,
+     labels=traits.loadNames, pos=2, cex=0.9)
 
 
 
@@ -456,6 +461,13 @@ plot(traitPC1.mean$PC1mean, rep(1, length(traitPC1.mean$PC1mean)), col=colors.tr
      xlab="Trait PC1 score", ylab=NA, main="Color representation of trait PC1 scores", yaxt='n', cex.main=1.5)
 
 traitPC1.mean$color <- colors.traitPC
+
+## Plot range of color gradient as a legend
+traitPCrange <- seq(from=min(traitPC1.mean$PC1mean), to=max(traitPC1.mean$PC1mean), by=0.01)
+vals_normTraitRange <- (traitPCrange - min(traitPCrange)) / (max(traitPCrange) - min(traitPCrange))
+rgb_matrixTraitRange <- gradient_fn(vals_normTraitRange)
+colors.traitPCrange <- rgb(rgb_matrixTraitRange[,1], rgb_matrixTraitRange[,2], rgb_matrixTraitRange[,3], maxColorValue = 255)
+plot(traitPCrange, rep(0.5, length(traitPCrange)), col=colors.traitPCrange, pch=15, cex=4)
 ## -----------------------------------------------------------------------------
 
 
@@ -485,10 +497,12 @@ pca_vals$Source <- indvNames$Source                          #Add a column with 
 popNames <- unique(indvNames$PopID)
 
 
-## Calculate mean PC1 values for each population
+## Calculate mean PC values for each population
 PC1.mean <- pca_vals %>% group_by(Source) %>% summarise(PC1mean = mean(EV1), n=n())
 PC1.mean <- PC1.mean[1:11,]
 
+PC2.mean <- pca_vals %>% group_by(Source) %>% summarise(PC2mean = mean(EV2), n=n())
+PC2.mean <- PC2.mean[1:11,]
 
 
 
@@ -497,7 +511,7 @@ PC1.mean <- PC1.mean[1:11,]
 # Define a color gradient 
 gradient_fn <- colorRamp(c("greenyellow",   "deeppink"))
 
-# Normalize your values to [0,1] scale
+# Normalize values to [0,1] scale
 vals_norm <- (PC1.mean$PC1mean - min(PC1.mean$PC1mean)) / (max(PC1.mean$PC1mean) - min(PC1.mean$PC1mean))
 
 # Get RGB colors (as integers 0-255)
@@ -507,6 +521,7 @@ rgb_matrix <- gradient_fn(vals_norm)
 colors <- rgb(rgb_matrix[,1], rgb_matrix[,2], rgb_matrix[,3], maxColorValue = 255)
 
 # Plot using colors
+dev.off()
 plot(PC1.mean$PC1mean, rep(1, length(PC1.mean$PC1mean)), col=colors, pch=16, cex=1.75,
      xlab="Genomic PC1 score", ylab=NA, main="Color representation of genomic PC1 scores", yaxt='n')
 
@@ -514,6 +529,32 @@ PC1.mean$color <- colors
 
 ## Plot range of color gradient as a legend
 genPCrange <- seq(from=min(PC1.mean$PC1mean), to=max(PC1.mean$PC1mean), by=0.01)
+vals_normGenRange <- (genPCrange - min(genPCrange)) / (max(genPCrange) - min(genPCrange))
+rgb_matrixGenRange <- gradient_fn(vals_normGenRange)
+colors.genPCrange <- rgb(rgb_matrixGenRange[,1], rgb_matrixGenRange[,2], rgb_matrixGenRange[,3], maxColorValue = 255)
+plot(genPCrange, rep(0.5, length(genPCrange)), col=colors.genPCrange, pch=15, cex=4)
+
+
+
+## PC2
+# Normalize values to [0,1] scale
+vals_normPC2 <- (PC2.mean$PC2mean - min(PC2.mean$PC2mean)) / (max(PC2.mean$PC2mean) - min(PC2.mean$PC2mean))
+
+# Get RGB colors (as integers 0-255)
+rgb_matrixPC2 <- gradient_fn(vals_normPC2)
+
+# Convert to hex color strings
+colorsPC2 <- rgb(rgb_matrixPC2[,1], rgb_matrixPC2[,2], rgb_matrixPC2[,3], maxColorValue = 255)
+
+# Plot using colors
+dev.off()
+plot(PC2.mean$PC2mean, rep(1, length(PC2.mean$PC2mean)), col=colorsPC2, pch=16, cex=1.75,
+     xlab="Genomic PC2 score", ylab=NA, main="Color representation of genomic PC2 scores", yaxt='n')
+
+PC2.mean$color <- colorsPC2
+
+## Plot range of color gradient as a legend
+genPCrange <- seq(from=min(PC2.mean$PC2mean), to=max(PC2.mean$PC2mean), by=0.01)
 vals_normGenRange <- (genPCrange - min(genPCrange)) / (max(genPCrange) - min(genPCrange))
 rgb_matrixGenRange <- gradient_fn(vals_normGenRange)
 colors.genPCrange <- rgb(rgb_matrixGenRange[,1], rgb_matrixGenRange[,2], rgb_matrixGenRange[,3], maxColorValue = 255)
