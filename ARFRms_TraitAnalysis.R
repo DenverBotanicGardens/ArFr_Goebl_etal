@@ -15,6 +15,7 @@ library(lme4)
 library(car)
 library(plotrix)
 library(emmeans)
+library(FactoMineR)
 
 calcSE <- function(x){sd(x, na.rm=TRUE)/sqrt(length(x))}
 ## ------------------------------------------------------------------------------------------------
@@ -365,8 +366,6 @@ surv.pw <- emmeans(surv24.mod, specs = pairwise ~ Source, type="response")
 
 
 ## Trait PCA -----------------------------------------------------------
-library(FactoMineR)
-
 ARFR.sel$Grwth <- ARFR.sel$Height_20230927 - ARFR.sel$Length_cm_20220726
 ARFR.traits <- ARFR.sel %>% dplyr::select(c("Length_cm_20220726","Height_20230927","Grwth","Survival","SLA_mm2permg",
                                             "InfBM2022_2024updated","Source")) 
@@ -419,9 +418,6 @@ plot(x=pca.ind$coord[,1], y=pca.ind$coord[,2],pch=19, cex=1.2, col=indivs.traitP
      xlab="PC1 (28.8% variance)", ylab="PC2 (26.1% variance)")
 legend("topleft", AddnCols.unq$PopAbbrev, col=AddnCols.unq$PopCol, cex=0.95, pch=19)
 
-plot(x=pca.ind$coord[,3], y=pca.ind$coord[,4],pch=19, cex=1.2, col=indivs.traitPCA$HexCode_Indv, main="Trait PCA")
-
-
 ## Add loadings to plot (modified from chatGPT)
 rownames(pca.load)
 traits.loadNames <- c("Size","Growth","Survival","SLA","Reproduction")
@@ -432,15 +428,24 @@ text(pca.load[,1]*arrow_scale, pca.load[,2]*arrow_scale,
      labels=traits.loadNames, pos=2, cex=0.9)
 
 
+## Plot PC 3 and 4
+plot(x=pca.ind$coord[,3], y=pca.ind$coord[,4],pch=19, cex=1.2, col=indivs.traitPCA$HexCode_Indv, main="Trait PCA")
+## ------------
 
 
-## Calculate PC1 mean values for each source population
+
+## Calculate mean PC values for each population
 trait.PCscores <- as.data.frame(cbind(pca.ind$coord[,1], pca.ind$coord[,2], as.character(indivs.traitPCA$Source)))
-#trait.PCscores <- as.data.frame(cbind(pca.results$x[,1], pca.results$x[,2], as.character(indivs.traitPCA$Source)))
 colnames(trait.PCscores) <- c("PC1", "PC2", "Source")
+
 trait.PCscores$PC1 <- as.numeric(trait.PCscores$PC1)
 traitPC1.mean <- trait.PCscores %>% group_by(Source) %>% summarise(PC1mean = mean(PC1), n=n())
 
+trait.PCscores$PC2 <- as.numeric(trait.PCscores$PC2)
+traitPC2.mean <- trait.PCscores %>% group_by(Source) %>% summarise(PC2mean = mean(PC2), n=n())
+
+
+## Trait PC1
 ## Create color gradient and assign colors based on numeric continuous PC1 mean values
 # Adapted from ChatGPT generated code
 # Define a color gradient (e.g., from blue to red)
@@ -468,6 +473,32 @@ vals_normTraitRange <- (traitPCrange - min(traitPCrange)) / (max(traitPCrange) -
 rgb_matrixTraitRange <- gradient_fn(vals_normTraitRange)
 colors.traitPCrange <- rgb(rgb_matrixTraitRange[,1], rgb_matrixTraitRange[,2], rgb_matrixTraitRange[,3], maxColorValue = 255)
 plot(traitPCrange, rep(0.5, length(traitPCrange)), col=colors.traitPCrange, pch=15, cex=4)
+
+
+
+## PC2
+# Normalize values to [0,1] scale
+vals_normTraitPC2 <- (traitPC2.mean$PC2mean - min(traitPC2.mean$PC2mean)) / (max(traitPC2.mean$PC2mean) - min(traitPC2.mean$PC2mean))
+
+# Get RGB colors (as integers 0-255)
+rgb_matrixTraitPC2 <- gradient_fn(vals_normTraitPC2)
+
+# Convert to hex color strings
+colorsTraitPC2 <- rgb(rgb_matrixTraitPC2[,1], rgb_matrixTraitPC2[,2], rgb_matrixTraitPC2[,3], maxColorValue = 255)
+
+# Plot using colors
+dev.off()
+plot(traitPC2.mean$PC2mean, rep(1, length(traitPC2.mean$PC2mean)), col=colorsTraitPC2, pch=16, cex=1.75,
+     xlab="Trait PC2 score", ylab=NA, main="Color representation of trait PC2 scores", yaxt='n')
+
+traitPC2.mean$color <- colorsTraitPC2
+
+## Plot range of color gradient as a legend
+traitPC2range <- seq(from=min(traitPC2.mean$PC2mean), to=max(traitPC2.mean$PC2mean), by=0.01)
+vals_normTraitPC2Range <- (traitPC2range - min(traitPC2range)) / (max(traitPC2range) - min(traitPC2range))
+rgb_matrixTraitPC2Range <- gradient_fn(vals_normTraitPC2Range)
+colors.traitPC2range <- rgb(rgb_matrixTraitPC2Range[,1], rgb_matrixTraitPC2Range[,2], rgb_matrixTraitPC2Range[,3], maxColorValue = 255)
+plot(traitPC2range, rep(0.5, length(traitPC2range)), col=colors.traitPC2range, pch=15, cex=4)
 ## -----------------------------------------------------------------------------
 
 
