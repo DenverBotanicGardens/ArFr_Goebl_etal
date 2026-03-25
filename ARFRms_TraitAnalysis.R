@@ -192,6 +192,7 @@ barplot(surv24.pop, col=ARFR.meds$PopCol, ylim=c(0,1), cex.axis=0.99, names.arg=
 
 
 ## MODEL TRAIT DATA ----------------------------------
+library(DHARMa)
 
 ## Re-order Source as factor before running models
 AddnCols.unq <- unique(AddnCols)
@@ -211,12 +212,12 @@ Anova(sz22.mod)
 
 ## Check distribution of residuals to assess if model form/ family is appropriate
 pResid <- residuals(sz22.mod, type="pearson")
-dResid <- residuals(sz22.mod, type="deviance")
 hist(pResid)                                          #Shape should be consistent with assumed error distribution (e.g. normal)
-hist(dResid)
 qqnorm(pResid)                                        #Points should roughly follow the diagonal line, even at tails
-qqline(dResid)
+qqline(pResid)
 plot(fitted(sz22.mod), pResid, abline(h=0,col="red")) #Residuals should be randomly scattered around 0 line
+sz22.simRes <- simulateResiduals(sz22.mod)
+plot(sz22.simRes)
 
 ## Obtain model predicted values for response variables
 predForSource <- as.data.frame(AddnCols.unq$Source) 
@@ -235,6 +236,8 @@ hist(pResid)
 qqnorm(pResid)                                        
 qqline(pResid)
 plot(fitted(sz23.mod), pResid, abline(h=0,col="red")) 
+sz23.simRes <- simulateResiduals(sz23.mod)
+plot(sz23.simRes)
 
 ## Obtain model predicted values for response variables
 sz23.pred <- predict(sz23.mod, newdata=predForSource, se.fit=TRUE, type="response", re.form=~0)
@@ -245,16 +248,18 @@ sz23.pred <- predict(sz23.mod, newdata=predForSource, se.fit=TRUE, type="respons
 hist(ARFR.sel$SLA_mm2permg)
 hist(log(ARFR.sel$SLA_mm2permg))
 sla.mod <- lmer(log(SLA_mm2permg) ~ Source + (1|Block), data=ARFR.sel)
+sla.mod <- lmer(log(SLA_mm2permg) ~ Source + (1|Block), data=ARFR.sel)
 summary(sla.mod)
 Anova(sla.mod)
 
 ## Check distribution of residuals to assess if model form/ family is appropriate
 pResid <- residuals(sla.mod, type="pearson")
-dResid <- residuals(sla.mod, type="deviance")
-hist(dResid)                                          
+hist(pResid)                                          
 qqnorm(pResid)                                        
 qqline(pResid)
 plot(fitted(sla.mod), pResid, abline(h=0,col="red")) 
+sla.simRes <- simulateResiduals(sla.mod)
+plot(sla.simRes)
 
 ## Obtain model predicted values for response variables
 sla.predLog <- predict(sla.mod, newdata=predForSource, type="response", re.form=~0, se.fit=TRUE)
@@ -267,7 +272,8 @@ sla.predOrigSE <- exp(sla.predLog$se.fit)
 hist(ARFR.sel$InfBM2022_2024updated)
 hist(log(ARFR.sel$InfBM2022_2024updated))
 
-rbm.mod <- lmer(log(InfBM2022_2024updated) ~ Source + (1|Block), data=ARFR.sel)
+rbm.mod <- lmer(InfBM2022_2024updated ~ Source + (1|Block), data=ARFR.sel)
+
 summary(rbm.mod)
 Anova(rbm.mod)
 
@@ -277,11 +283,44 @@ hist(pResid)
 qqnorm(pResid)                                        
 qqline(pResid)
 plot(fitted(rbm.mod), pResid, abline(h=0,col="red")) 
+rbm.simRes <- simulateResiduals(rbm.mod)
+plot(rbm.simRes)
 
 ## Obtain model predicted values for response variables
-rbm.predLog <- predict(rbm.mod, newdata=predForSource, type="response", re.form=~0, se.fit=TRUE)
+rbm.pred <- predict(rbm.mod, newdata=predForSource, se.fit=TRUE, type="response", re.form=~0)
+
+
+## Try model without zeros for reproduction
+ARFR.sel$InfBM2022_2024updated[ARFR.sel$InfBM2022_2024updated == 0 & !is.na(ARFR.sel$InfBM2022_2024updated)] <- NA
+
+rbm.modLog <- lmer(log(InfBM2022_2024updated) ~ Source + (1|Block), data=ARFR.sel)
+rbm.modGam <- glmer(InfBM2022_2024updated ~ Source + (1|Block), family=Gamma(link="log"), data=InfBMno0)
+
+## Check distribution of residuals to assess if model form/ family is appropriate
+pResid <- residuals(rbm.modLog, type="pearson")
+hist(pResid)                                          
+qqnorm(pResid)                                        
+qqline(pResid)
+plot(fitted(rbm.modLog), pResid, abline(h=0,col="red")) 
+rbmLog.simRes <- simulateResiduals(rbm.modLog)
+plot(rbmLog.simRes)
+
+pResid <- residuals(rbm.modGam, type="pearson")
+hist(pResid)                                          
+qqnorm(pResid)                                        
+qqline(pResid)
+plot(fitted(rbm.modGam), pResid, abline(h=0,col="red")) 
+rbmGam.simRes <- simulateResiduals(rbm.modGam)
+plot(rbmGam.simRes)
+
+## Obtain model predicted values for response variables
+rbm.predLog <- predict(rbm.modLog, newdata=predForSource, type="response", re.form=~0, se.fit=TRUE)
 rbm.predOrigFit <- exp(rbm.predLog$fit)
 rbm.predOrigSE <- exp(rbm.predLog$se.fit)
+
+rbm.predGam <- predict(rbm.modGam, newdata=predForSource, type="response", re.form=~0, se.fit=TRUE)
+
+
 
 
 
