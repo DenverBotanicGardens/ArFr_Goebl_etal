@@ -248,7 +248,7 @@ sz23.pred <- predict(sz23.mod, newdata=predForSource, se.fit=TRUE, type="respons
 hist(ARFR.sel$SLA_mm2permg)
 hist(log(ARFR.sel$SLA_mm2permg))
 sla.mod <- lmer(log(SLA_mm2permg) ~ Source + (1|Block), data=ARFR.sel)
-sla.mod <- lmer(log(SLA_mm2permg) ~ Source + (1|Block), data=ARFR.sel)
+#sla.mod <- lmer(SLA_mm2permg ~ Source + (1|Block), data=ARFR.sel)
 summary(sla.mod)
 Anova(sla.mod)
 
