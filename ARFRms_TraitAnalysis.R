@@ -15,6 +15,7 @@ library(lme4)
 library(car)
 library(plotrix)
 library(emmeans)
+library(multcomp)
 library(FactoMineR)
 
 calcSE <- function(x){sd(x, na.rm=TRUE)/sqrt(length(x))}
@@ -270,7 +271,6 @@ sla.predOrigSE <- exp(sla.predLog$se.fit)
 ## Reproductive biomass
 hist(ARFR.sel$InfBM2022_2024updated)
 hist(log(ARFR.sel$InfBM2022_2024updated))
-
 rbm.mod <- lmer(InfBM2022_2024updated ~ Source + (1|Block), data=ARFR.sel)
 
 summary(rbm.mod)
@@ -328,17 +328,17 @@ surv24.mod <- glmer(Survival ~ Source + (1|Block), data=ARFR.sel, family=binomia
 summary(surv24.mod)
 Anova(surv24.mod)
 
-## Check for overdispersion (modified from ChatGPT) and other diagnostics
-overdisp_fun <- function(model) {
-  rdf <- df.residual(model)
-  rp <- residuals(model, type="pearson")
-  Pearson.chisq <- sum(rp^2)
-  ratio <- Pearson.chisq / rdf
-  p <- pchisq(Pearson.chisq, df=rdf, lower.tail=FALSE)
-  return(c(chisq = Pearson.chisq, ratio=ratio, rdf=rdf, p=p))
+## Check for overdispersion (function modified from ChatGPT) and other diagnostics
+overdisp.fun <- function(model) {
+  dfResid <- df.residual(model)
+  pRes <- residuals(model, type="pearson")
+  Pearson.chisq <- sum(pRes^2)
+  ratio <- Pearson.chisq / dfResid
+  p <- pchisq(Pearson.chisq, df=dfResid, lower.tail=FALSE)
+  return(c(chisq = Pearson.chisq, ratio=ratio, dfResid=dfResid, p=p))
 }
 
-overdisp_fun(surv24.mod)
+overdisp.fun(surv24.mod)
 
 surv.simRes <- simulateResiduals(surv24.mod)
 plot(surv.simRes)
@@ -360,26 +360,52 @@ surv24.pred <- predict(surv24.mod, newdata=predForSource, type="response", re.fo
 predForSource <- dplyr::left_join(predForSource, AddnCols, by="Source")
 predForSource <- unique(predForSource)
 preds <- cbind(predForSource, sz22.pred$fit, sz22.pred$se.fit, sz23.pred$fit, sz23.pred$se.fit,
-               rbm.predOrigFit, rbm.predOrigSE, sla.predOrigFit, sla.predOrigSE, surv24.pred$fit, surv24.pred$se.fit)
+               rbm.pred$fit, rbm.pred$se.fit, sla.predOrigFit, sla.predOrigSE, surv24.pred$fit, surv24.pred$se.fit)
+
+
+## Look at pairwise differences in model estimates + sig between populations using emmeans 
+sz22.pw <- emmeans(sz22.mod, specs = pairwise ~ Source, type="response")
+sz23.pw <- emmeans(sz23.mod, specs = pairwise ~ Source, type="response")
+rbm.pw <- emmeans(rbm.mod, specs = pairwise ~ Source, type="response")
+sla.pw <- emmeans(sla.mod, specs = pairwise ~ Source, type="response")
+surv.pw <- emmeans(surv24.mod, specs = pairwise ~ Source, type="response")
+
+sz22.cld <- cld(sz22.pw, Letters=letters, adjust='sidak')
+sz22.cld$groupSz22 <- gsub(" ", "", sz22.cld$.group)
+sz23.cld <- cld(sz23.pw, Letters=letters, adjust='sidak')
+sz23.cld$groupSz23 <- gsub(" ", "", sz23.cld$.group)
+rbm.cld <- cld(rbm.pw, Letters=letters, adjust='sidak')
+rbm.cld$groupRbm <- gsub(" ", "", rbm.cld$.group)
+sla.cld <- cld(sla.pw, Letters=letters, adjust='sidak')
+sla.cld$groupSla <- gsub(" ", "", sla.cld$.group)
+surv.cld <- cld(surv.pw, Letters=letters, adjust='sidak')
+surv.cld$groupSurv <- gsub(" ", "", surv.cld$.group)
+
+preds <- merge(preds, sz22.cld[, c("Source","groupSz22")], by="Source")
+
+## ** Change order so a's are assigned to AZ pops **
+## Plot so that all letters are at the top **
 
 par(mfrow=c(1,1))
 plot(NA, NA, xlab="Seed source", ylab="Height (cm)",
-     main="FINAL SIZE 2022", cex.lab=1.25, xaxt='n', xlim=c(1,11), ylim=c(13.5,48.5))
+     main="FINAL SIZE 2022", cex.lab=1.25, xaxt='n', xlim=c(1,11), ylim=c(13.5,49.5))
 arrows(1:11, preds$`sz22.pred$fit`+preds$`sz22.pred$se.fit`, 1:11, preds$`sz22.pred$fit`-preds$`sz22.pred$se.fit`,
        angle=90, col="black", code=3, length=0, lwd=2)
 points(1:11, preds$`sz22.pred$fit`, col="black", bg=preds$PopCol, pch=21, cex=1.45)
 axis(side=1, at=1:11,preds$PopAbbrev, las=2, cex.axis=0.9)
+sz22.offset <- max(preds$`sz22.pred$se.fit`) * 1.5
+text(x=1:11, y=(preds$`sz22.pred$fit`+preds$`sz22.pred$se.fit` + sz22.offset), labels=preds$groupSz22)
 
 
 par(mfrow=c(2,2))
-plot(NA, NA, xlab="Seed source", ylab="Reproductive  biomass (g)",
-     main="REPRODUCTION 2022", cex.lab=1.25, xaxt='n', xlim=c(1,11), ylim=c(0,40))
-arrows(1:11, preds$rbm.predOrigFit+preds$rbm.predOrigSE, 1:11, preds$rbm.predOrigFit-preds$rbm.predOrigSE,
+plot(NA, NA, ylab="Reproductive  biomass (g)", xlab=NA,
+     main="REPRODUCTION 2022", cex.lab=1.25, xaxt='n', xlim=c(1,11), ylim=c(-5,45)) #xlab="Seed source", 
+arrows(1:11, preds$`rbm.pred$fit`+preds$`rbm.pred$se.fit`, 1:11, preds$`rbm.pred$fit`-preds$`rbm.pred$se.fit`,
        angle=90, col="black", code=3, length=0, lwd=2)
-points(1:11, preds$rbm.predOrigFit, col="black", bg=preds$PopCol, pch=21, cex=1.5)
+points(1:11, preds$`rbm.pred$fit`, col="black", bg=preds$PopCol, pch=21, cex=1.5)
 axis(side=1, at=1:11,preds$PopAbbrev, las=2, cex.axis=0.9)
 
-plot(NA, NA, xlab="Seed source", ylab="Height (cm)",
+plot(NA, NA, xlab=NA, ylab="Height (cm)",
      main="FINAL SIZE 2023", cex.lab=1.25, xaxt='n', xlim=c(1,11), ylim=c(40,68))
 arrows(1:11, preds$`sz23.pred$fit`+preds$`sz23.pred$se.fit`, 1:11, preds$`sz23.pred$fit`-preds$`sz23.pred$se.fit`,
        angle=90, col="black", code=3, length=0, lwd=2)
@@ -387,7 +413,7 @@ points(1:11, preds$`sz23.pred$fit`, col="black", bg=preds$PopCol, pch=21, cex=1.
 axis(side=1, at=1:11,preds$PopAbbrev, las=2, cex.axis=0.9)
 
 plot(NA, NA, xlab="Seed source", ylab="Specific leaf area (mm2/mg)",
-     main="SPECIFIC LEAF AREA 2024", cex.lab=1.25, xaxt='n', xlim=c(1,11), ylim=c(10,16))
+     main="SPECIFIC LEAF AREA 2024", cex.lab=1.25, xaxt='n', xlim=c(1,11), ylim=c(9,16))
 arrows(1:11, preds$sla.predOrigFit+preds$sla.predOrigSE, 1:11, preds$sla.predOrigFit-preds$sla.predOrigSE,
        angle=90, col="black", code=3, length=0, lwd=2)
 points(1:11, preds$sla.predOrigFit, col="black", bg=preds$PopCol, pch=21, cex=1.5)
@@ -407,13 +433,6 @@ plot(preds$`sz22.pred$fit`, preds$`sz23.pred$fit`)
 plot(preds$`sz22.pred$fit`, preds$rbm.predOrigFit)
 plot(preds$`sz23.pred$fit`, preds$rbm.predOrigFit)
 
-
-
-## Look at pairwise differences in model estimates + sig between populations using emmeans 
-sz23.pw <- emmeans(sz23.mod, specs = pairwise ~ Source, type="response")
-rbm.pw <- emmeans(rbm.mod, specs = pairwise ~ Source, type="response")
-sla.pw <- emmeans(sla.mod, specs = pairwise ~ Source, type="response")
-surv.pw <- emmeans(surv24.mod, specs = pairwise ~ Source, type="response")
 ## ---------------------------------------------------------------------
 
 
