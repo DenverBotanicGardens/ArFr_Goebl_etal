@@ -328,6 +328,26 @@ surv24.mod <- glmer(Survival ~ Source + (1|Block), data=ARFR.sel, family=binomia
 summary(surv24.mod)
 Anova(surv24.mod)
 
+## Check for overdispersion (modified from ChatGPT) and other diagnostics
+overdisp_fun <- function(model) {
+  rdf <- df.residual(model)
+  rp <- residuals(model, type="pearson")
+  Pearson.chisq <- sum(rp^2)
+  ratio <- Pearson.chisq / rdf
+  p <- pchisq(Pearson.chisq, df=rdf, lower.tail=FALSE)
+  return(c(chisq = Pearson.chisq, ratio=ratio, rdf=rdf, p=p))
+}
+
+overdisp_fun(surv24.mod)
+
+surv.simRes <- simulateResiduals(surv24.mod)
+plot(surv.simRes)
+testDispersion(surv.simRes)
+testZeroInflation(surv.simRes)
+
+VarCorr(surv24.mod) #Check random effects
+
+
 ## Obtain model predicted values for response variables
 surv24.pred <- predict(surv24.mod, newdata=predForSource, type="response", re.form=~0, se.fit=TRUE)
 
