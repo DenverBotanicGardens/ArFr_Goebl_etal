@@ -17,6 +17,7 @@ library(plotrix)
 library(emmeans)
 library(multcomp)
 library(FactoMineR)
+library(DHARMa)
 
 calcSE <- function(x){sd(x, na.rm=TRUE)/sqrt(length(x))}
 ## ------------------------------------------------------------------------------------------------
@@ -193,7 +194,6 @@ barplot(surv24.pop, col=ARFR.meds$PopCol, ylim=c(0,1), cex.axis=0.99, names.arg=
 
 
 ## MODEL TRAIT DATA ----------------------------------
-library(DHARMa)
 
 ## Re-order Source as factor before running models
 AddnCols.unq <- unique(AddnCols)
@@ -362,6 +362,7 @@ predForSource <- unique(predForSource)
 preds <- cbind(predForSource, sz22.pred$fit, sz22.pred$se.fit, sz23.pred$fit, sz23.pred$se.fit,
                rbm.pred$fit, rbm.pred$se.fit, sla.predOrigFit, sla.predOrigSE, surv24.pred$fit, surv24.pred$se.fit)
 
+levels(ARFR.sel$Source)
 
 ## Look at pairwise differences in model estimates + sig between populations using emmeans 
 sz22.pw <- emmeans(sz22.mod, specs = pairwise ~ Source, type="response")
@@ -381,10 +382,11 @@ sla.cld$groupSla <- gsub(" ", "", sla.cld$.group)
 surv.cld <- cld(surv.pw, Letters=letters, adjust='sidak')
 surv.cld$groupSurv <- gsub(" ", "", surv.cld$.group)
 
-preds <- merge(preds, sz22.cld[, c("Source","groupSz22")], by="Source")
+preds <- dplyr::left_join(preds, sz22.cld[, c("Source","groupSz22")], by="Source")
+preds <- dplyr::left_join(preds, sz23.cld[, c("Source","groupSz23")], by="Source")
+preds <- dplyr::left_join(preds, surv.cld[, c("Source","groupSurv")], by="Source")
 
-## ** Change order so a's are assigned to AZ pops **
-## Plot so that all letters are at the top **
+## Plot so that all letters are at the top? **
 
 par(mfrow=c(1,1))
 plot(NA, NA, xlab="Seed source", ylab="Height (cm)",
@@ -406,11 +408,13 @@ points(1:11, preds$`rbm.pred$fit`, col="black", bg=preds$PopCol, pch=21, cex=1.5
 axis(side=1, at=1:11,preds$PopAbbrev, las=2, cex.axis=0.9)
 
 plot(NA, NA, xlab=NA, ylab="Height (cm)",
-     main="FINAL SIZE 2023", cex.lab=1.25, xaxt='n', xlim=c(1,11), ylim=c(40,68))
+     main="FINAL SIZE 2023", cex.lab=1.25, xaxt='n', xlim=c(1,11), ylim=c(40,71))
 arrows(1:11, preds$`sz23.pred$fit`+preds$`sz23.pred$se.fit`, 1:11, preds$`sz23.pred$fit`-preds$`sz23.pred$se.fit`,
        angle=90, col="black", code=3, length=0, lwd=2)
 points(1:11, preds$`sz23.pred$fit`, col="black", bg=preds$PopCol, pch=21, cex=1.5)
 axis(side=1, at=1:11,preds$PopAbbrev, las=2, cex.axis=0.9)
+sz23.offset <- max(preds$`sz23.pred$se.fit`) * 1.5
+text(x=1:11, y=(preds$`sz23.pred$fit`+preds$`sz23.pred$se.fit` + sz23.offset), labels=preds$groupSz23)
 
 plot(NA, NA, xlab="Seed source", ylab="Specific leaf area (mm2/mg)",
      main="SPECIFIC LEAF AREA 2024", cex.lab=1.25, xaxt='n', xlim=c(1,11), ylim=c(9,16))
@@ -425,6 +429,8 @@ arrows(1:11, preds$`surv24.pred$fit`+preds$`surv24.pred$se.fit`, 1:11, preds$`su
        angle=90, col="black", code=3, length=0, lwd=2)
 points(1:11, preds$`surv24.pred$fit`, col="black", bg=preds$PopCol, pch=21, cex=1.5)
 axis(side=1, at=1:11,preds$PopAbbrev, las=2, cex.axis=0.9)
+surv.offset <- max(preds$`surv24.pred$se.fit`) * 0.3
+text(x=1:11, y=(preds$`surv24.pred$fit`+preds$`surv24.pred$se.fit` + surv.offset), labels=preds$groupSurv)
 
 
 
@@ -553,7 +559,7 @@ plot(traitPCrange, rep(0.5, length(traitPCrange)), col=colors.traitPCrange, pch=
 
 
 
-## PC2
+## Trait PC2
 # Normalize values to [0,1] scale
 vals_normTraitPC2 <- (traitPC2.mean$PC2mean - min(traitPC2.mean$PC2mean)) / (max(traitPC2.mean$PC2mean) - min(traitPC2.mean$PC2mean))
 
