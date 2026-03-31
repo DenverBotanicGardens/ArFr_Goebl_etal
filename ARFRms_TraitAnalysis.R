@@ -365,7 +365,7 @@ preds <- cbind(predForSource, sz22.pred$fit, sz22.pred$se.fit, sz23.pred$fit, sz
 levels(ARFR.sel$Source)
 
 ## Look at pairwise differences in model estimates + sig between populations using emmeans 
-sz22.pw <- emmeans(sz22.mod, specs = pairwise ~ Source, type="response")
+sz22.pw <- emmeans(sz22.mod, specs = pairwise ~ Source, type="response", adjust="tukey")
 sz23.pw <- emmeans(sz23.mod, specs = pairwise ~ Source, type="response")
 rbm.pw <- emmeans(rbm.mod, specs = pairwise ~ Source, type="response")
 sla.pw <- emmeans(sla.mod, specs = pairwise ~ Source, type="response")
@@ -400,37 +400,40 @@ text(x=1:11, y=(preds$`sz22.pred$fit`+preds$`sz22.pred$se.fit` + sz22.offset), l
 
 
 par(mfrow=c(2,2))
+par(mar = c(4.1, 5.1, 3.1, 1.1)) 
 plot(NA, NA, ylab="Reproductive  biomass (g)", xlab=NA,
      main="REPRODUCTION 2022", cex.lab=1.25, xaxt='n', xlim=c(1,11), ylim=c(-5,45)) #xlab="Seed source", 
 arrows(1:11, preds$`rbm.pred$fit`+preds$`rbm.pred$se.fit`, 1:11, preds$`rbm.pred$fit`-preds$`rbm.pred$se.fit`,
        angle=90, col="black", code=3, length=0, lwd=2)
-points(1:11, preds$`rbm.pred$fit`, col="black", bg=preds$PopCol, pch=21, cex=1.5)
-axis(side=1, at=1:11,preds$PopAbbrev, las=2, cex.axis=0.9)
+points(1:11, preds$`rbm.pred$fit`, col="black", bg=preds$PopCol, pch=21, cex=1.95)
+axis(side=1, at=1:11,preds$PopAbbrev, las=2, cex.axis=0.99)
 
 plot(NA, NA, xlab=NA, ylab="Height (cm)",
      main="FINAL SIZE 2023", cex.lab=1.25, xaxt='n', xlim=c(1,11), ylim=c(40,71))
 arrows(1:11, preds$`sz23.pred$fit`+preds$`sz23.pred$se.fit`, 1:11, preds$`sz23.pred$fit`-preds$`sz23.pred$se.fit`,
        angle=90, col="black", code=3, length=0, lwd=2)
-points(1:11, preds$`sz23.pred$fit`, col="black", bg=preds$PopCol, pch=21, cex=1.5)
-axis(side=1, at=1:11,preds$PopAbbrev, las=2, cex.axis=0.9)
+points(1:11, preds$`sz23.pred$fit`, col="black", bg=preds$PopCol, pch=21, cex=1.95)
+axis(side=1, at=1:11,preds$PopAbbrev, las=2, cex.axis=0.99)
 sz23.offset <- max(preds$`sz23.pred$se.fit`) * 1.5
-text(x=1:11, y=(preds$`sz23.pred$fit`+preds$`sz23.pred$se.fit` + sz23.offset), labels=preds$groupSz23)
+text(x=1:11, y=(preds$`sz23.pred$fit`+preds$`sz23.pred$se.fit` + sz23.offset), 
+     labels=preds$groupSz23, cex=1.25)
 
-plot(NA, NA, xlab="Seed source", ylab="Specific leaf area (mm2/mg)",
+plot(NA, NA, xlab="Seed source", ylab=expression("Specific leaf area (mm"^2*"/mg)"),
      main="SPECIFIC LEAF AREA 2024", cex.lab=1.25, xaxt='n', xlim=c(1,11), ylim=c(9,16))
 arrows(1:11, preds$sla.predOrigFit+preds$sla.predOrigSE, 1:11, preds$sla.predOrigFit-preds$sla.predOrigSE,
        angle=90, col="black", code=3, length=0, lwd=2)
-points(1:11, preds$sla.predOrigFit, col="black", bg=preds$PopCol, pch=21, cex=1.5)
-axis(side=1, at=1:11,preds$PopAbbrev, las=2, cex.axis=0.9)
+points(1:11, preds$sla.predOrigFit, col="black", bg=preds$PopCol, pch=21, cex=1.95)
+axis(side=1, at=1:11,preds$PopAbbrev, las=2, cex.axis=0.99)
 
 plot(NA, NA, xlab="Seed source", ylab="Survival rate",
      main="SURVIVAL 2022-2024", cex.lab=1.25, xaxt='n', xlim=c(1,11), ylim=c(0,1.9))
 arrows(1:11, preds$`surv24.pred$fit`+preds$`surv24.pred$se.fit`, 1:11, preds$`surv24.pred$fit`-preds$`surv24.pred$se.fit`,
        angle=90, col="black", code=3, length=0, lwd=2)
-points(1:11, preds$`surv24.pred$fit`, col="black", bg=preds$PopCol, pch=21, cex=1.5)
-axis(side=1, at=1:11,preds$PopAbbrev, las=2, cex.axis=0.9)
+points(1:11, preds$`surv24.pred$fit`, col="black", bg=preds$PopCol, pch=21, cex=1.95)
+axis(side=1, at=1:11,preds$PopAbbrev, las=2, cex.axis=0.99)
 surv.offset <- max(preds$`surv24.pred$se.fit`) * 0.3
-text(x=1:11, y=(preds$`surv24.pred$fit`+preds$`surv24.pred$se.fit` + surv.offset), labels=preds$groupSurv)
+text(x=1:11, y=(preds$`surv24.pred$fit`+preds$`surv24.pred$se.fit` + surv.offset), 
+     labels=preds$groupSurv, cex=1.25)
 
 
 
