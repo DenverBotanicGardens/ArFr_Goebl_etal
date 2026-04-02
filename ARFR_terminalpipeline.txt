@@ -1,0 +1,78 @@
+### RADseq Population Genomics - Command Line Scripts ###
+
+## Starting from a vcf file, "AGartemisia.vcf"
+
+# using vcftools version 0.1.17, and structure version 2.3.4
+
+
+### assessing data characteristics for filtering ###
+
+# to get basic stats like number of variants
+
+vcftools --vcf AGartemisia.vcf
+
+
+# calculate Hardy-Weinberg equilibrium of sites
+
+vcftools --vcf AGartemisia.vcf --hardy --out AGartemisia
+
+
+# mean sequence depth
+
+vcftools --vcf AGartemisia.vcf --site-mean-depth --out AGartemisia
+
+
+# make a 012 matrix to calculate relative heterozygosity
+
+vcftools --vcf AGartemisia.vcf --012 --out AGartemisia
+
+
+## To remove potential paralogs, I filtered using mean sequence depth, since HWE seemed to remove more sites than necessary. I compared the mean sequence depth per variant with Hardy-Weinberg output, and filtered to a mean depth where HWE was normally distributed.
+
+# filter by mean sequence depth
+
+vcftools --vcf AGartemisia.vcf --max-meanDP 500 --recode --recode-INFO-all --out AGartemisia_v2
+
+
+# assess missingness of sites
+
+vcftools --vcf AGartemisia_v2.recode.vcf --missing-site
+
+
+# assess missingness of individuals
+
+vcftools --vcf AGartemisia_v2.recode.vcf --missing-indv
+
+
+# remove individuals from dataset (for example, individuals with high missingness), in which "rm9ids.txt" is a list of 9 individual IDs to be removed
+
+vcftools --vcf AGartemisia_v2.recode.vcf --remove path/rm9ids.txt --recode --recode-INFO-all --out AGartemisia_v3
+
+
+# filter to only biallelic snps
+
+vcftools --vcf AGartemisia_v3.recode.vcf --min-alleles 2 --max-alleles 2 --recode --recode-INFO-all --out AGartemisia_v5
+
+
+## calculating diversity metrics ##
+
+# calculate inbreeding coefficient F. Use the output to average by population in R.
+
+vcftools --vcf AGartemisia_v5.recode.vcf --het
+
+
+# calculate nucleotide diversity (site pi) for individual populations, in which "pop1ids.txt" is a text file with the sample IDs for all samples in population 1
+
+vcftools --vcf AGartemisia_v5.recode.vcf --keep pop1ids.txt --site-pi --out pop1.pi
+
+
+
+### STRUCTURE ###
+
+# first converted filtered vcf to STRUCTURE format using PGDSpider
+
+# set input and output files, burnin and MCMC reps in mainparams. remember to run each K value multiple times.
+
+# basic structure run for K = 1
+
+structure -m path/mainparams -K 1 -o k1run.txt
