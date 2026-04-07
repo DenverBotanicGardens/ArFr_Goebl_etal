@@ -386,7 +386,7 @@ preds <- dplyr::left_join(preds, sz22.cld[, c("Source","groupSz22")], by="Source
 preds <- dplyr::left_join(preds, sz23.cld[, c("Source","groupSz23")], by="Source")
 preds <- dplyr::left_join(preds, surv.cld[, c("Source","groupSurv")], by="Source")
 
-## Plot so that all letters are at the top? **
+## Plot so that all letters are at the top? 
 
 par(mfrow=c(1,1))
 plot(NA, NA, xlab="Seed source", ylab="Height (cm)",
@@ -399,42 +399,53 @@ sz22.offset <- max(preds$`sz22.pred$se.fit`) * 1.5
 text(x=1:11, y=(preds$`sz22.pred$fit`+preds$`sz22.pred$se.fit` + sz22.offset), labels=preds$groupSz22)
 
 
+reso <- 600
+length <- 5*reso/72
+png("TraitsFig5j.png",units="in",res=reso,height=(length/1.9),width=(length/1.2))
 par(mfrow=c(2,2))
-par(mar = c(4.1, 5.1, 3.1, 1.1)) 
-plot(NA, NA, ylab="Reproductive  biomass (g)", xlab=NA,
-     main="REPRODUCTION 2022", cex.lab=1.25, xaxt='n', xlim=c(1,11), ylim=c(-5,45)) #xlab="Seed source", 
-arrows(1:11, preds$`rbm.pred$fit`+preds$`rbm.pred$se.fit`, 1:11, preds$`rbm.pred$fit`-preds$`rbm.pred$se.fit`,
-       angle=90, col="black", code=3, length=0, lwd=2)
-points(1:11, preds$`rbm.pred$fit`, col="black", bg=preds$PopCol, pch=21, cex=1.95)
-axis(side=1, at=1:11,preds$PopAbbrev, las=2, cex.axis=0.99)
+#par(mar = c(4.1, 5.1, 3.1, 1.1)) c(bottom, left, top, right)
+par(mar=c(14, 10, 10, 3), xpd=TRUE) 
+par(mgp=c(5, 1.5, 0))
 
-plot(NA, NA, xlab=NA, ylab="Height (cm)",
-     main="FINAL SIZE 2023", cex.lab=1.25, xaxt='n', xlim=c(1,11), ylim=c(40,71))
+plot(NA, NA, ylab="Reproductive  biomass (g)", xlab=NA, cex.main=4, cex.axis=3,
+     main="REPRODUCTION 2022", cex.lab=4.5, xaxt='n', xlim=c(1,11), ylim=c(-5,45)) #xlab="Seed source", 
+arrows(1:11, preds$`rbm.pred$fit`+preds$`rbm.pred$se.fit`, 1:11, preds$`rbm.pred$fit`-preds$`rbm.pred$se.fit`,
+       angle=90, col="black", code=3, length=0, lwd=5)
+points(1:11, preds$`rbm.pred$fit`, col="black", bg=preds$PopCol, pch=21, cex=5.5)
+axis(side=1, at=1:11,preds$PopAbbrev, las=2, cex.axis=3.5)
+#mtext("A.", side=3, line=1, adj=0, cex=6, las=1) 
+
+
+plot(NA, NA, xlab=NA, ylab="Height (cm)", cex.main=4, cex.axis=3,
+     main="FINAL SIZE 2023", cex.lab=4.5, xaxt='n', xlim=c(1,11), ylim=c(40,71))
 arrows(1:11, preds$`sz23.pred$fit`+preds$`sz23.pred$se.fit`, 1:11, preds$`sz23.pred$fit`-preds$`sz23.pred$se.fit`,
-       angle=90, col="black", code=3, length=0, lwd=2)
-points(1:11, preds$`sz23.pred$fit`, col="black", bg=preds$PopCol, pch=21, cex=1.95)
-axis(side=1, at=1:11,preds$PopAbbrev, las=2, cex.axis=0.99)
+       angle=90, col="black", code=3, length=0, lwd=5)
+points(1:11, preds$`sz23.pred$fit`, col="black", bg=preds$PopCol, pch=21, cex=5.5)
+axis(side=1, at=1:11,preds$PopAbbrev, las=2, cex.axis=3.5)
 sz23.offset <- max(preds$`sz23.pred$se.fit`) * 1.5
 text(x=1:11, y=(preds$`sz23.pred$fit`+preds$`sz23.pred$se.fit` + sz23.offset), 
-     labels=preds$groupSz23, cex=1.25)
+     labels=preds$groupSz23, cex=3)
 
-plot(NA, NA, xlab="Seed source", ylab=expression("Specific leaf area (mm"^2*"/mg)"),
-     main="SPECIFIC LEAF AREA 2024", cex.lab=1.25, xaxt='n', xlim=c(1,11), ylim=c(9,16))
+plot(NA, NA, xlab="", ylab=expression("Specific leaf area (mm"^2*"/mg)"), cex.main=4,
+     main="SPECIFIC LEAF AREA 2024", cex.lab=4.5, cex.axis=3, xaxt='n', xlim=c(1,11), ylim=c(9,16))
 arrows(1:11, preds$sla.predOrigFit+preds$sla.predOrigSE, 1:11, preds$sla.predOrigFit-preds$sla.predOrigSE,
-       angle=90, col="black", code=3, length=0, lwd=2)
-points(1:11, preds$sla.predOrigFit, col="black", bg=preds$PopCol, pch=21, cex=1.95)
-axis(side=1, at=1:11,preds$PopAbbrev, las=2, cex.axis=0.99)
+       angle=90, col="black", code=3, length=0, lwd=5)
+points(1:11, preds$sla.predOrigFit, col="black", bg=preds$PopCol, pch=21, cex=5.5)
+axis(side=1, at=1:11,preds$PopAbbrev, las=2, cex.axis=3.5)
+#title(xlab="Seed source", line=5, cex.lab=4.5)
 
-plot(NA, NA, xlab="Seed source", ylab="Survival rate",
-     main="SURVIVAL 2022-2024", cex.lab=1.25, xaxt='n', xlim=c(1,11), ylim=c(0,1.9))
+plot(NA, NA, xlab="", ylab="Survival rate", cex.main=4, cex.axis=3,
+     main="SURVIVAL 2022-2024", cex.lab=4.5, xaxt='n', xlim=c(1,11), ylim=c(0,1.9))
 arrows(1:11, preds$`surv24.pred$fit`+preds$`surv24.pred$se.fit`, 1:11, preds$`surv24.pred$fit`-preds$`surv24.pred$se.fit`,
-       angle=90, col="black", code=3, length=0, lwd=2)
-points(1:11, preds$`surv24.pred$fit`, col="black", bg=preds$PopCol, pch=21, cex=1.95)
-axis(side=1, at=1:11,preds$PopAbbrev, las=2, cex.axis=0.99)
+       angle=90, col="black", code=3, length=0, lwd=5)
+points(1:11, preds$`surv24.pred$fit`, col="black", bg=preds$PopCol, pch=21, cex=5.5)
+axis(side=1, at=1:11,preds$PopAbbrev, las=2, cex.axis=3.5)
 surv.offset <- max(preds$`surv24.pred$se.fit`) * 0.3
 text(x=1:11, y=(preds$`surv24.pred$fit`+preds$`surv24.pred$se.fit` + surv.offset), 
-     labels=preds$groupSurv, cex=1.25)
+     labels=preds$groupSurv, cex=3)
+#title(xlab="Seed source", line=5, cex.lab=4.5)
 
+dev.off()
 
 
 ## Look at correlation in trait estimates
