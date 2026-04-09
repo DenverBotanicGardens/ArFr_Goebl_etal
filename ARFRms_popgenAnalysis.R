@@ -10,7 +10,7 @@ knitr::opts_chunk$set(collapse = TRUE)
 #' These packages are used multiple times throughout the scripts, and should be loaded prior to performing analyses. Packages used in only one script are loaded at the beginning of each section.
 # load packages
 library(ggplot2)
-library(dplyr)
+library(tidyverse)
 library(cowplot)
 
 #' ## Load Data and Color Palette
@@ -50,6 +50,9 @@ pop_colors <- pop_colors[pop_order]
 #' 
 # read sample data file
 sample_data <- read.csv("data/ARFRv5_strata.csv", stringsAsFactors = FALSE)
+
+# load population data file
+pop_df <- read_csv("./data/20230823_ARFR_LatLong_hexcodes.csv")
 
 #' ## Data Filtering
 #' 
@@ -523,6 +526,144 @@ ggsave(
   dpi = 300
 )
 print(ibd_plot)
+#'
+#' ### Mantel Test for Isolation by Environment
+#' Since our isolation by distance test showed a positive correlation that was not very strong, we decided to test for isolation by environment using a similar Mantel test. For our environmental variables, we used the 19 bioclimatic variables from WorldClim, averaged from 1980-2021.
+# load libraries for ibe
+library(vegan)
+library(stats)
+
+# load environmental data from worldclim
+env_df <- read_csv("./data/20230814_ARFR_BiovarsAvg1980_2021.csv")
+
+# remove non-environmental variable columns in dataset (leaving elevation in meters)
+env_df$Pop <- NULL  # optional if present
+env_df$ELEV_FT <- NULL  # optional if present
+env_df$Latitude <- NULL  # optional if present
+env_df$Longitude <- NULL  # optional if present
+
+# ensure column name matches and join datasets
+env_df$SOURCE_CODE <- env_df$`SOURCE CODE`
+env_df$`SOURCE CODE` <- NULL  # optional if present
+env_df <- full_join(env_df, pop_df, by = "SOURCE_CODE")
+
+# remove unnecessary columns from dataset
+env_df$Hex_Code <- NULL
+env_df$Long <- NULL
+env_df$Lat <- NULL
+env_df$SdZone <- NULL
+env_df$Notes <- NULL
+env_df$Tmin_Class <- NULL
+env_df$AHM_class <- NULL
+env_df$seed_zone <- NULL
+env_df$Level_III_eco <- NULL
+env_df$New_label <- NULL
+env_df$Source <- NULL
+env_df$SOURCE_CODE <- NULL
+
+# reformat and set row names to population names if first column is population
+env_df <- relocate(env_df, Pop_abbr, .before = `1`)
+env_df <- slice_head(env_df, n = 11)
+env_df <- column_to_rownames(env_df, var = "Pop_abbr")
+#'
+#' We then standardized our environmental variables and ran a principal component analysis to collapse the environmental variation into components. We used only the first four principal components in our analyses, as this represented approximately 90% of the environmental variation in our data. We then created an environmental distance matrix using those four principal components.
+#'
+# standardize environmental variables
+env_scaled <- scale(env_df)
+
+# run an environmental pca to reduce collinearity
+pca_res <- prcomp(env_scaled, center = TRUE, scale. = TRUE)
+summary(pca_res)  # checks proportion of variance explained
+
+# use pcs that account for ~90% of data (in this case, the first four)
+env_pcs <- pca_res$x[, 1:4]
+
+# compute environmental distance matrix
+env_dist <- dist(env_pcs, method = "euclidean")
+env_mat <- as.matrix(env_dist)
+#' 
+#' Here we use the genetic distance matrix "Dgen_mat" and pre-established diagonal object "pair_idx" from isolation by distance analysis (see above) to make our isolation by environment dataframe. We then perform the Mantel test, calculate the linear model associated with it, and plot our results.
+#' 
+# make isolation by environment dataframe
+ibe_df <- data.frame(
+  pop1 = pops[pair_idx[, 1]],
+  pop2 = pops[pair_idx[, 2]],
+  dist_gen = Dgen_mat[pair_idx],
+  dist_env = env_mat[pair_idx]
+)
+
+# apply pop_order to both pop columns
+ibe_df$pop1 <- factor(ibe_df$pop1, levels = pop_order)
+ibe_df$pop2 <- factor(ibe_df$pop2, levels = pop_order)
+
+# mantel test
+mantel_res <- mantel(Dgen_mat, env_mat, method = "pearson", permutations = 999)
+print(mantel_res)
+
+# compute mantel r squared
+ibe_mantelr2 <- mantel_res$statistic^2
+
+# determine the fit of the linear model
+# finding regression formula
+ibemodel <- lm(dist_gen ~ dist_env, data = ibe_df)
+ibeslope <- coef(ibemodel)[2]
+ibeintercept <- coef(ibemodel)[1]
+
+# format outputs
+ibeslope_formatted <- formatC(ibeslope, format = "e", digits = 2)  # e.g., 1.23e-05
+ibeintercept_formatted <- round(ibeintercept, 3)
+
+# calculate r squared for linear model
+ibe_line_r2 <- summary(ibemodel)$r.squared
+print(ibe_line_r2)
+
+# significance of the linear model
+p_val <- summary(ibemodel)$coefficients[2, 4]
+print(p_val)
+
+# make the plot label with the stats
+label_ibe <- paste0("y = ", ibeslope_formatted, "x + ", ibeintercept_formatted,"\nR² = ", round(ibe_mantelr2, 4), 
+                    "\np = ", format.pval(mantel_res$signif, digits = 3, eps = .001))
+
+# plot, save, and print to screen
+ibe_plot <- ggplot(ibe_df, aes(x = dist_env, y = dist_gen)) +
+  geom_smooth(method = "lm", se = TRUE, color = "black", fill = "gray70", linewidth = 1) +
+  # Outline for large points
+  geom_point(aes(color = pop1), size = 4.6, stroke = 0, shape = 16, alpha = 1, color = "black") +
+  geom_point(aes(color = pop1), size = 4, shape = 16, alpha = 1, show.legend = TRUE) +
+  # Outline for small points
+  geom_point(aes(color = pop2), size = 2.6, stroke = 0, shape = 16, alpha = 1, color = "black") +
+  geom_point(aes(color = pop2), size = 2, shape = 16, alpha = 1, show.legend = FALSE) +
+  scale_color_manual(values = pop_colors, name = "Population") +
+  labs(
+    x = "Environmental Distance",
+    y = "Genetic Distance (Fst)"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "right",
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.title = element_text(face = "bold")
+  ) +
+  annotate("text", 
+           x = Inf, y = Inf, 
+           label = label_ibe, 
+           hjust = 1, vjust = 1.1, 
+           size = 4, fontface = "italic")
+
+ggsave(
+  filename = "ibe.pdf",
+  plot = ibe_plot,
+  device = "pdf",
+  path = "./results/analysisfigures/",
+  scale = 1,
+  width = 8,
+  height = 5,
+  units = c("in"),
+  dpi = 300
+)
+
+print(ibe_plot)
 #' 
 #' ## Population Structure
 #' ### PCA in SNPrelate
@@ -684,3 +825,118 @@ sp <- arrangeGrob(
   structure_plot$plot[[1]])
 ggsave("./results/analysisfigures/structure_plot.pdf", sp, width = 8, height = 5)
 grid.arrange(structure_plot$plot[[1]])
+
+#' # Estimating Effective Migration Surfaces (EEMS)
+#' Lastly, to determine whether any of our population structure was due to ecogeographic variables, we used the program EEMs (https://github.com/dipetkov/eems) to estimate migration surfaces between our populations.
+#' 
+#' EEMs uses three input files that we create first. We began by using the "genofile" object calculated using SNPRelate and gdsfmt in the principal component analysis above to compute pairwise genetic dissimilarities between our populations, following the code in https://github.com/dipetkov/eems. We then create the coordinates file. Lastly, we create a convex hull polygon using our population location coordinates as our outer path.
+# create genotype matrix from the genofile
+geno <- snpgdsGetGeno(genofile)
+# from https://github.com/dipetkov/eems:
+# Use the "pairwise.complete.obs" method to compute pairwise dissimilarities
+# This straightforward implementation
+# uses a double loop, so would be slow if the sample size is large.
+bed2diffs_v1 <- function(genotypes) {
+  nIndiv <- nrow(genotypes)
+  nSites <- ncol(genotypes)
+  diffs <- matrix(0, nIndiv, nIndiv)
+  
+  for (i in seq(nIndiv - 1)) {
+    for (j in seq(i + 1, nIndiv)) {
+      x <- genotypes[i, ]
+      y <- genotypes[j, ]
+      diffs[i, j] <- mean((x - y)^2, na.rm = TRUE)
+      diffs[j, i] <- diffs[i, j]
+    }
+  }
+  diffs
+}
+
+diffs <- bed2diffs_v1(geno)
+
+# write the dissimilarity matrix
+write.table(diffs,
+            file = "./data/ARFR.diffs",
+            row.names = FALSE,
+            col.names = FALSE,
+            sep = " ",
+            quote = FALSE)
+
+# second, creating the ARFR.coords file
+# determine the order of the genotype matrix is the same as that of the population coordinates
+sample_ids <- read.gdsn(index.gdsn(genofile, "sample.id"))
+head(sample_ids)
+
+# subset sample data to create the coordinates
+popcoords <- subset(sample_data, select = c(vcf_id, lat, lon))
+# check work - should return "true"
+all(popcoords$sample == sample_ids)
+
+# export this as a table
+write.table(popcoords[,c("lat","lon")],
+            "./data/ARFR.coord",
+            row.names=FALSE,
+            col.names=FALSE,
+            quote=FALSE)
+
+# lastly, creating an outer path file for our dataset
+# simple convex hull polygon
+hull_idx <- chull(popcoords$lat, popcoords$lon)
+hull_coords <- popcoords[c(hull_idx, hull_idx[1]), ]
+hull_coords <- subset(hull_coords, select = c(lat,lon))
+
+# export as a table
+write.table(hull_coords,
+            "./data/ARFR.outer",
+            row.names=FALSE,
+            col.names=FALSE,
+            quote=FALSE)
+
+#' At this point, we ran EEMs in command line with the three input files we made. Our parameters were as follows: 
+#' sample/deme info
+#' nDemes = 120         # moderate resolution for ~11 populations
+#' nIndiv = 87
+#' nSites = 2259
+#' 
+#' mcmc parameters
+#' numMCMCIter = 1000000
+#' numBurnIter = 100000
+#' numThinIter = 1000
+#' 
+#' We then plotted our outputs of the EEMs run here.
+library(reemsplots2)
+library(terra)
+library(ggrepel)
+library(sf)
+
+# eems output directory path
+mcmcpath <- "./results/eems_run1/"
+
+# generate all the standard plots
+plots <- make_eems_plots(mcmcpath, longlat = FALSE)
+
+# add pop locations to the polygon
+migration_with_samples <- plots$mrates01 +
+  geom_point(data = pop_df,
+             aes(x = Long, y = Lat),
+             color = "black",
+             size = 2)+
+  geom_text_repel(data = pop_df, aes(Long, Lat, label = Pop_abbr), max.overlaps = 50) 
+
+print(migration_with_samples)
+
+# add second plot with confidence/quality of any given location
+migration_with_quality <- plot_grid(migration_with_samples, plots$qrates01, labels = c("A","B"))
+
+ggsave2(
+  filename = "eems.pdf",
+  plot = migration_with_quality,
+  device = "pdf",
+  path = "./results/analysisfigures/",
+  scale = 1,
+  width = 7.75,
+  height = 4.25,
+  units = c("in"),
+  dpi = 300
+)
+print(migration_with_quality)
