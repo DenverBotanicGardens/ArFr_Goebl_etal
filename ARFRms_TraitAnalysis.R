@@ -130,7 +130,7 @@ colnames(AddnCols) <- c("PopAbbrev","PopCol","Lat","Source")
 ## ARFR - VISUALIZE RAW DATA ---------------------------------------------------------------
 
 ## Order populations for plotting 
-## Order by average latitude (or other traits)
+## Order by latitude (or other traits)
 ARFR.latByMed <- with(ARFR.sel, reorder(Source, Lat, median, na.rm=TRUE))
 
 ARFR.meds <- ARFR.sel %>% group_by(Source) %>% 
@@ -320,6 +320,8 @@ rbm.predOrigSE <- exp(rbm.predLog$se.fit)
 rbm.predGam <- predict(rbm.modGam, newdata=predForSource, type="response", re.form=~0, se.fit=TRUE)
 
 
+## Stick with simple linear (non-logged) model for repro estimates etc. moving forward ## 
+
 
 
 
@@ -386,7 +388,6 @@ preds <- dplyr::left_join(preds, sz22.cld[, c("Source","groupSz22")], by="Source
 preds <- dplyr::left_join(preds, sz23.cld[, c("Source","groupSz23")], by="Source")
 preds <- dplyr::left_join(preds, surv.cld[, c("Source","groupSurv")], by="Source")
 
-## Plot so that all letters are at the top? 
 
 par(mfrow=c(1,1))
 plot(NA, NA, xlab="Seed source", ylab="Height (cm)",
@@ -401,10 +402,9 @@ text(x=1:11, y=(preds$`sz22.pred$fit`+preds$`sz22.pred$se.fit` + sz22.offset), l
 
 reso <- 600
 length <- 5*reso/72
-png("TraitsFig5j.png",units="in",res=reso,height=(length/1.9),width=(length/1.2))
+png("TraitsFig5.png",units="in",res=reso,height=(length/1.9),width=(length/1.2))
 par(mfrow=c(2,2))
-#par(mar = c(4.1, 5.1, 3.1, 1.1)) c(bottom, left, top, right)
-par(mar=c(14, 10, 10, 3), xpd=TRUE) 
+par(mar=c(14, 10, 10, 3), xpd=TRUE) ##c(bottom, left, top, right)
 par(mgp=c(5, 1.5, 0))
 
 plot(NA, NA, ylab="Reproductive  biomass (g)", xlab=NA, cex.main=4, cex.axis=3,
@@ -413,7 +413,6 @@ arrows(1:11, preds$`rbm.pred$fit`+preds$`rbm.pred$se.fit`, 1:11, preds$`rbm.pred
        angle=90, col="black", code=3, length=0, lwd=5)
 points(1:11, preds$`rbm.pred$fit`, col="black", bg=preds$PopCol, pch=21, cex=5.5)
 axis(side=1, at=1:11,preds$PopAbbrev, las=2, cex.axis=3.5)
-#mtext("A.", side=3, line=1, adj=0, cex=6, las=1) 
 
 
 plot(NA, NA, xlab=NA, ylab="Height (cm)", cex.main=4, cex.axis=3,
@@ -432,7 +431,6 @@ arrows(1:11, preds$sla.predOrigFit+preds$sla.predOrigSE, 1:11, preds$sla.predOri
        angle=90, col="black", code=3, length=0, lwd=5)
 points(1:11, preds$sla.predOrigFit, col="black", bg=preds$PopCol, pch=21, cex=5.5)
 axis(side=1, at=1:11,preds$PopAbbrev, las=2, cex.axis=3.5)
-#title(xlab="Seed source", line=5, cex.lab=4.5)
 
 plot(NA, NA, xlab="", ylab="Survival rate", cex.main=4, cex.axis=3,
      main="SURVIVAL 2022-2024", cex.lab=4.5, xaxt='n', xlim=c(1,11), ylim=c(0,1.9))
@@ -443,7 +441,6 @@ axis(side=1, at=1:11,preds$PopAbbrev, las=2, cex.axis=3.5)
 surv.offset <- max(preds$`surv24.pred$se.fit`) * 0.3
 text(x=1:11, y=(preds$`surv24.pred$fit`+preds$`surv24.pred$se.fit` + surv.offset), 
      labels=preds$groupSurv, cex=3)
-#title(xlab="Seed source", line=5, cex.lab=4.5)
 
 dev.off()
 
@@ -478,7 +475,7 @@ ARFR.traitsCor <- cor(ARFR.traits[,1:6], use="pairwise.complete.obs")
 corrplot(ARFR.traitsCor)
 ## Exclude size in 2022 due to high correlation with growth and 2022 repro
 
-## Calculate population means and use to impute missing values (modified from ChatGPT)
+## Calculate population means and use to impute missing values (modified from AI)
 ARFR.traitsImp <- ARFR.traits[,2:7] %>% group_by(Source) %>%
   mutate(Grwth=ifelse(is.na(Grwth), mean(Grwth, na.rm=TRUE), Grwth),
   Sz23=ifelse(is.na(Height_20230927), mean(Height_20230927, na.rm=TRUE), Height_20230927),
@@ -515,7 +512,7 @@ plot(x=pca.ind$coord[,1], y=pca.ind$coord[,2],pch=19, cex=1.2, col=indivs.traitP
      xlab="PC1 (28.8% variance)", ylab="PC2 (26.1% variance)")
 legend("topleft", AddnCols.unq$PopAbbrev, col=AddnCols.unq$PopCol, cex=0.95, pch=19)
 
-## Add loadings to plot (modified from chatGPT)
+## Add loadings to plot (modified from AI)
 rownames(pca.load)
 traits.loadNames <- c("Size","Growth","Survival","SLA","Reproduction")
 arrow_scale <- 4
@@ -544,8 +541,8 @@ traitPC2.mean <- trait.PCscores %>% group_by(Source) %>% summarise(PC2mean = mea
 
 ## Trait PC1
 ## Create color gradient and assign colors based on numeric continuous PC1 mean values
-# Adapted from ChatGPT generated code
-# Define a color gradient (e.g., from blue to red)
+# Modified from AI generated code
+# Define a color gradient 
 gradient_fn <- colorRamp(c("greenyellow",   "deeppink"))
 
 # Normalize values to [0,1] scale
@@ -635,7 +632,6 @@ PC2.mean <- PC2.mean[1:11,]
 
 
 ## Create color gradient and assign colors based on numeric continuous PC1 mean values
-# Adapted from ChatGPT generated code
 # Define a color gradient 
 gradient_fn <- colorRamp(c("greenyellow",   "deeppink"))
 
